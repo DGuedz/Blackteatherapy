@@ -1,0 +1,20 @@
+{
+  "name": "Base Network Monitor",
+  "description": "Monitor Base network status and block updates",
+  "version": "1.0.0",
+  "workflow": {
+    "trigger": "schedule",
+    "interval": "5 minutes",
+    "nodes": [
+      {
+        "name": "HTTP Request - Base RPC",
+        "type": "n8n-nodes-base.httpRequest",
+        "parameters": {
+          "method": "POST",
+          "url": "https://sepolia.base.org",
+          "body": "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"id\":1}"
+        }
+      }
+    ]
+  }
+}
