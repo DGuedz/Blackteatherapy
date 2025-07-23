@@ -1,0 +1,37 @@
+{
+  "name": "Multi-Platform Community Rewards",
+  "description": "Distribute BlackStar rewards across Discord, Telegram, and WhatsApp",
+  "version": "1.0.0",
+  "workflow": {
+    "trigger": "schedule",
+    "cron": "0 23 * * *",
+    "nodes": [
+      {
+        "name": "Aggregate Daily Activity",
+        "type": "n8n-nodes-base.postgres",
+        "parameters": {
+          "operation": "select",
+          "query": "SELECT user_id, platform, COUNT(*) as interactions FROM (SELECT user_id, 'discord' as platform FROM discord_messages WHERE date = CURRENT_DATE UNION ALL SELECT user_id, 'telegram' as platform FROM telegram_interactions WHERE date = CURRENT_DATE UNION ALL SELECT user_id, 'whatsapp' as platform FROM whatsapp_interactions WHERE date = CURRENT_DATE) combined GROUP BY user_id, platform"
+        }
+      },
+      {
+        "name": "Calculate Rewards",
+        "type": "n8n-nodes-base.function",
+        "parameters": {
+          "functionCode": "const rewards = [];\nfor (const item of items) {\n  const baseReward = 10;\n  const platformMultiplier = item.json.platform === 'whatsapp' ? 1.5 : 1.2;\n  const totalReward = Math.floor(item.json.interactions * baseReward * platformMultiplier);\n  rewards.push({\n    json: {\n      user_id: item.json.user_id,\n      platform: item.json.platform,\n      reward_amount: totalReward,\n      date: new Date().toISOString().split('T')[0]\n    }\n  });\n}\nreturn rewards;"
+        }
+      },
+      {
+        "name": "Mint BlackStar Tokens",
+        "type": "n8n-nodes-base.httpRequest",
+        "parameters": {
+          "method": "POST",
+          "url": "{{$env.BLOCKCHAIN_API_URL}}/mint-tokens",
+          "body": {
+            "rewards": "{{$json}}"
+          }
+        }
+      }
+    ]
+  }
+}

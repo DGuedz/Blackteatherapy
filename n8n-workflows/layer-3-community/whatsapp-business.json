@@ -1,0 +1,80 @@
+{
+  "name": "WhatsApp Business Automation",
+  "description": "Complete WhatsApp Business integration for BlackTeaTherapy",
+  "version": "1.0.0",
+  "workflow": {
+    "trigger": "webhook",
+    "endpoint": "/whatsapp-business",
+    "nodes": [
+      {
+        "name": "Incoming Message Handler",
+        "type": "n8n-nodes-base.webhook",
+        "parameters": {
+          "path": "whatsapp-webhook",
+          "responseMode": "responseNode"
+        }
+      },
+      {
+        "name": "Message Classification",
+        "type": "n8n-nodes-base.switch",
+        "parameters": {
+          "conditions": {
+            "options": [
+              {"operation": "contains", "value1": "{{$json.message.text}}", "value2": "therapy"},
+              {"operation": "contains", "value1": "{{$json.message.text}}", "value2": "mood"},
+              {"operation": "contains", "value1": "{{$json.message.text}}", "value2": "help"},
+              {"operation": "contains", "value1": "{{$json.message.text}}", "value2": "grupo"}
+            ]
+          }
+        }
+      },
+      {
+        "name": "AI Therapy Response",
+        "type": "n8n-nodes-base.openAi",
+        "parameters": {
+          "model": "gpt-4",
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "Você é um assistente de terapia Afrocentrado do BlackTeaTherapy. Responda com empatia, sabedoria ancestral e suporte emocional."
+              },
+              {
+                "role": "user", 
+                "content": "{{$json.message.text}}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "WhatsApp Response",
+        "type": "n8n-nodes-base.httpRequest",
+        "parameters": {
+          "method": "POST",
+          "url": "https://graph.facebook.com/v17.0/{{$env.WHATSAPP_PHONE_ID}}/messages",
+          "headers": {
+            "Authorization": "Bearer {{$env.WHATSAPP_ACCESS_TOKEN}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "messaging_product": "whatsapp",
+            "to": "{{$json.message.from}}",
+            "text": {
+              "body": "{{$json.choices[0].message.content}}"
+            }
+          }
+        }
+      },
+      {
+        "name": "Log Interaction",
+        "type": "n8n-nodes-base.postgres",
+        "parameters": {
+          "operation": "insert",
+          "table": "whatsapp_interactions",
+          "columns": "user_id, message, response, timestamp"
+        }
+      }
+    ]
+  }
+}

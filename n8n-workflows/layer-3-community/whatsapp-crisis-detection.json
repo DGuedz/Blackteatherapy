@@ -1,0 +1,79 @@
+{
+  "name": "WhatsApp Crisis Detection & Response",
+  "description": "Real-time crisis detection and immediate support via WhatsApp",
+  "version": "1.0.0",
+  "workflow": {
+    "trigger": "webhook",
+    "endpoint": "/whatsapp-crisis",
+    "nodes": [
+      {
+        "name": "Crisis Language Analysis",
+        "type": "n8n-nodes-base.openAi",
+        "parameters": {
+          "model": "gpt-4",
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "Analise esta mensagem para sinais de crise de saúde mental. Retorne JSON: {\"crisis_level\": \"low/medium/high\", \"keywords\": [], \"recommended_action\": \"\"}"
+              },
+              {
+                "role": "user",
+                "content": "{{$json.message.text}}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Crisis Level Router",
+        "type": "n8n-nodes-base.switch",
+        "parameters": {
+          "conditions": {
+            "options": [
+              {"operation": "equal", "value1": "{{$json.crisis_level}}", "value2": "high"},
+              {"operation": "equal", "value1": "{{$json.crisis_level}}", "value2": "medium"},
+              {"operation": "equal", "value1": "{{$json.crisis_level}}", "value2": "low"}
+            ]
+          }
+        }
+      },
+      {
+        "name": "Immediate Crisis Response",
+        "type": "n8n-nodes-base.httpRequest",
+        "parameters": {
+          "method": "POST",
+          "url": "https://graph.facebook.com/v17.0/{{$env.WHATSAPP_PHONE_ID}}/messages",
+          "body": {
+            "messaging_product": "whatsapp",
+            "to": "{{$json.message.from}}",
+            "text": {
+              "body": "🚨 *BlackTeaTherapy - Suporte Imediato*\n\nPercebemos que você pode estar passando por um momento difícil. Você não está sozinho(a).\n\n📞 *Linhas de Apoio 24h:*\n• CVV: 188\n• CAPS: 0800-0000-000\n\n💜 Nossa equipe está entrando em contato em 5 minutos.\n\n🔗 Recursos imediatos: bit.ly/blacktea-crisis"
+            }
+          }
+        }
+      },
+      {
+        "name": "Alert Support Team",
+        "type": "n8n-nodes-base.httpRequest",
+        "parameters": {
+          "method": "POST",
+          "url": "{{$env.SLACK_WEBHOOK_URL}}",
+          "body": {
+            "text": "🚨 CRISE DETECTADA via WhatsApp",
+            "attachments": [
+              {
+                "color": "danger",
+                "fields": [
+                  {"title": "Usuário", "value": "{{$json.message.from}}", "short": true},
+                  {"title": "Nível", "value": "{{$json.crisis_level}}", "short": true},
+                  {"title": "Mensagem", "value": "{{$json.message.text}}", "short": false}
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "WhatsApp Therapeutic Groups Manager",
+  "description": "Manage therapeutic support groups on WhatsApp",
+  "version": "1.0.0",
+  "workflow": {
+    "trigger": "schedule",
+    "cron": "0 9,15,21 * * *",
+    "nodes": [
+      {
+        "name": "Daily Check-in Groups",
+        "type": "n8n-nodes-base.postgres",
+        "parameters": {
+          "operation": "select",
+          "table": "whatsapp_groups",
+          "where": "active = true AND type = 'therapeutic'"
+        }
+      },
+      {
+        "name": "Generate Daily Prompt",
+        "type": "n8n-nodes-base.openAi",
+        "parameters": {
+          "model": "gpt-4",
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "Crie uma reflexão diária Afrocentrada sobre saúde mental, ancestralidade e bem-estar para grupo terapêutico."
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Send to Groups",
+        "type": "n8n-nodes-base.httpRequest",
+        "parameters": {
+          "method": "POST",
+          "url": "https://graph.facebook.com/v17.0/{{$env.WHATSAPP_PHONE_ID}}/messages",
+          "body": {
+            "messaging_product": "whatsapp",
+            "to": "{{$json.group_id}}",
+            "text": {
+              "body": "🌅 *Reflexão do Dia - BlackTeaTherapy*\n\n{{$json.choices[0].message.content}}\n\n💜 Como você está se sentindo hoje? Compartilhe conosco!"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

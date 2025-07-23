@@ -1,0 +1,64 @@
+{
+  "name": "WhatsApp Outreach Campaigns",
+  "description": "Automated outreach for mental health awareness and community building",
+  "version": "1.0.0",
+  "workflow": {
+    "trigger": "schedule",
+    "cron": "0 10 * * 1",
+    "nodes": [
+      {
+        "name": "Get Target Audience",
+        "type": "n8n-nodes-base.postgres",
+        "parameters": {
+          "operation": "select",
+          "table": "users",
+          "where": "opted_in_whatsapp = true AND last_interaction < NOW() - INTERVAL '7 days'"
+        }
+      },
+      {
+        "name": "Personalized Message Generation",
+        "type": "n8n-nodes-base.openAi",
+        "parameters": {
+          "model": "gpt-4",
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "Crie mensagem personalizada de check-in para usuário que não interage há 7 dias. Tom: acolhedor, Afrocentrado, não invasivo."
+              },
+              {
+                "role": "user",
+                "content": "Usuário: {{$json.name}}, Último humor: {{$json.last_mood}}, Interesses: {{$json.interests}}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Send WhatsApp Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "parameters": {
+          "method": "POST",
+          "url": "https://graph.facebook.com/v17.0/{{$env.WHATSAPP_PHONE_ID}}/messages",
+          "body": {
+            "messaging_product": "whatsapp",
+            "to": "{{$json.whatsapp_number}}",
+            "type": "template",
+            "template": {
+              "name": "wellness_checkin",
+              "language": {"code": "pt_BR"},
+              "components": [
+                {
+                  "type": "body",
+                  "parameters": [
+                    {"type": "text", "text": "{{$json.name}}"}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}
